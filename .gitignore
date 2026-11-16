@@ -1,0 +1,22 @@
+# Compiled binary
+bin/
+
+# OS files
+.DS_Store
+
+# IDE settings
+.vscode/
+.idea/
+
+# Go build cache
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Go coverage
+*.out
