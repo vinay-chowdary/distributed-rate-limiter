@@ -2,6 +2,7 @@ package ratelimiter
 
 import (
 	"math"
+	"sync"
 	"time"
 )
 
@@ -40,6 +41,7 @@ type RateLimiter struct {
 	userBuckets       map[string]*TokenBucket
 	defaultCapacity   float64
 	defaultRefillrate float64
+	lock              sync.Mutex
 }
 
 func NewRateLimiter(capacity float64, refillRate float64) *RateLimiter {
@@ -47,6 +49,8 @@ func NewRateLimiter(capacity float64, refillRate float64) *RateLimiter {
 }
 
 func (rl *RateLimiter) Allow(clientID string) bool {
+	rl.lock.Lock()
+	defer rl.lock.Unlock()
 	bucket, exists := rl.userBuckets[clientID]
 
 	if !exists {
