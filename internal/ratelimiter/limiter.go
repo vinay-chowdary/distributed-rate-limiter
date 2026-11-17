@@ -35,3 +35,27 @@ func (tb *TokenBucket) Allow() bool {
 
 	return false
 }
+
+type RateLimiter struct {
+	userBuckets       map[string]*TokenBucket
+	defaultCapacity   float64
+	defaultRefillrate float64
+}
+
+func NewRateLimiter(capacity float64, refillRate float64) *RateLimiter {
+	return &RateLimiter{defaultCapacity: capacity, defaultRefillrate: refillRate, userBuckets: make(map[string]*TokenBucket)}
+}
+
+func (rl *RateLimiter) Allow(clientID string) bool {
+	bucket, exists := rl.userBuckets[clientID]
+
+	if !exists {
+		newBucket := NewTokenBucket(rl.defaultCapacity, rl.defaultRefillrate)
+		rl.userBuckets[clientID] = newBucket
+
+		return newBucket.Allow()
+	}
+
+	return bucket.Allow()
+
+}
