@@ -13,6 +13,8 @@ import (
 	"github.com/vinay-chowdary/distributed-rate-limiter/internal/server"
 	pr "github.com/vinay-chowdary/distributed-rate-limiter/proto/ratelimiter"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
@@ -38,6 +40,8 @@ func main() {
 	limiter := ratelimiter.NewRedisRateLimiter(rdb, 10, 0.1)
 
 	rateLimitServer := server.NewRateLimitServer(limiter)
+	// health check
+	healthServer := health.NewServer()
 
 	listener, err := net.Listen("tcp", ":50051")
 
@@ -49,14 +53,17 @@ func main() {
 	grpcServer := grpc.NewServer()
 
 	pr.RegisterRateLimitServiceServer(grpcServer, rateLimitServer)
+	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
 
 	slog.Info("gRPC server started", "port", 50051)
 
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	go func() {
 		if err := grpcServer.Serve(listener); err != nil {
 			slog.Error("failed to serve", "error", err)
 			os.Exit(1)
 		}
+
 	}()
 
 	sigChan := make(chan os.Signal, 1)
@@ -64,6 +71,7 @@ func main() {
 	<-sigChan
 
 	slog.Info("shutting down gracefully...")
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 	grpcServer.GracefulStop()
 
 	// wg := sync.WaitGroup{}
