@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"os"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/vinay-chowdary/distributed-rate-limiter/internal/ratelimiter"
@@ -14,8 +15,13 @@ import (
 
 func main() {
 
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+
 	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: redisAddr,
 	})
 
 	ctx := context.Background()
