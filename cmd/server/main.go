@@ -5,6 +5,8 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/vinay-chowdary/distributed-rate-limiter/internal/ratelimiter"
@@ -48,11 +50,18 @@ func main() {
 
 	log.Println("gRPC server listening on :50051")
 
-	err = grpcServer.Serve(listener)
+	go func() {
+		if err := grpcServer.Serve(listener); err != nil {
+			log.Fatalf("failed to serve: %v", err)
+		}
+	}()
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
+
+	log.Println("shutting down gracefully...")
+	grpcServer.GracefulStop()
 
 	// wg := sync.WaitGroup{}
 
