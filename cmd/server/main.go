@@ -4,10 +4,14 @@ import (
 	"context"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
+	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/vinay-chowdary/distributed-rate-limiter/internal/ratelimiter"
 	"github.com/vinay-chowdary/distributed-rate-limiter/internal/server"
@@ -50,7 +54,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	grpcServer := grpc.NewServer()
+	metrics := grpcprom.NewServerMetrics()
+	prometheus.MustRegister(metrics)
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(metrics.UnaryServerInterceptor()))
+	metrics.InitializeMetrics(grpcServer)
 
 	pr.RegisterRateLimitServiceServer(grpcServer, rateLimitServer)
 	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
@@ -65,6 +72,9 @@ func main() {
 		}
 
 	}()
+
+	http.Handle("/metrics", promhttp.Handler())
+	go http.ListenAndServe(":9090", nil)
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
