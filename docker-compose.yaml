@@ -20,6 +20,7 @@ services:
     container_name: rate-limiter-server
     ports:
       - "50051:50051"
+      - "9090:9090"
     environment:
       REDIS_ADDR: redis:6379
     depends_on:
