@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 
 	pb "github.com/vinay-chowdary/distributed-rate-limiter/proto/ratelimiter"
 
@@ -16,7 +17,8 @@ func main() {
 	con, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Cannot establish connection to server", "error", err)
+		os.Exit(1)
 	}
 
 	defer con.Close()
@@ -29,7 +31,8 @@ func main() {
 		rateLimiter, err := client.CheckRateLimit(context.Background(), req)
 
 		if err != nil {
-			log.Fatal(err)
+			slog.Error("failed to check rate limit", "error", err)
+			os.Exit(1)
 		}
 
 		fmt.Println(rateLimiter.Allowed, rateLimiter.RemainingTokens, rateLimiter.RetryAfterMs)

@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net"
 	"os"
 	"os/signal"
@@ -31,7 +31,8 @@ func main() {
 	_, err := rdb.Ping(ctx).Result()
 
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Redis connection failed", "error", err)
+		os.Exit(1)
 	}
 
 	limiter := ratelimiter.NewRedisRateLimiter(rdb, 10, 0.1)
@@ -41,18 +42,20 @@ func main() {
 	listener, err := net.Listen("tcp", ":50051")
 
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("failed to listen", "error", err)
+		os.Exit(1)
 	}
 
 	grpcServer := grpc.NewServer()
 
 	pr.RegisterRateLimitServiceServer(grpcServer, rateLimitServer)
 
-	log.Println("gRPC server listening on :50051")
+	slog.Info("gRPC server started", "port", 50051)
 
 	go func() {
 		if err := grpcServer.Serve(listener); err != nil {
-			log.Fatalf("failed to serve: %v", err)
+			slog.Error("failed to serve", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -60,7 +63,7 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
-	log.Println("shutting down gracefully...")
+	slog.Info("shutting down gracefully...")
 	grpcServer.GracefulStop()
 
 	// wg := sync.WaitGroup{}
