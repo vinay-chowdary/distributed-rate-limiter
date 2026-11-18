@@ -39,10 +39,10 @@ const tokenBucketScript = `
 		if stored_tokens >= 1 then
 			stored_tokens = stored_tokens - 1
 			redis.call("SET", KEYS[1], stored_tokens)
-			return 1
+			return {1, math.floor(stored_tokens), 0}
 		else
 			redis.call("SET", KEYS[1], stored_tokens)
-			return 0
+			return {0, 0, math.floor((1/refil_rate)*1000)}
 		end
 `
 
@@ -56,7 +56,7 @@ func NewRedisRateLimiter(client *redis.Client, capacity float64, refillRate floa
 	return &RedisRateLimiter{client: client, capacity: capacity, refillRate: refillRate}
 }
 
-func (rl *RedisRateLimiter) Allow(ctx context.Context, clientID string) (bool, error) {
+func (rl *RedisRateLimiter) Allow(ctx context.Context, clientID string) (bool, int64, int64, error) {
 	lastRefillKey := fmt.Sprintf("ratelimit:%s:last_refill", clientID)
 	tokenKey := fmt.Sprintf("ratelimit:%s:tokens", clientID)
 	currentTime := float64(time.Now().UnixMicro()) / 1e6
@@ -64,11 +64,15 @@ func (rl *RedisRateLimiter) Allow(ctx context.Context, clientID string) (bool, e
 	result, err := rl.client.Eval(ctx, tokenBucketScript,
 		[]string{tokenKey, lastRefillKey},
 		rl.capacity, rl.refillRate, currentTime,
-	).Int64()
+	).Slice()
 
 	if err != nil {
-		return false, err
+		return false, 0, 0, err
 	}
 
-	return result == 1, nil
+	allowed := result[0].(int64)
+	remainingTokens := result[1].(int64)
+	retryAfter := result[2].(int64)
+
+	return allowed == 1, remainingTokens, retryAfter, nil
 }

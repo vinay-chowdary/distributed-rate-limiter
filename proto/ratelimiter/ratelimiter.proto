@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package ratelimiter;
+
+option go_package = "github.com/vinay-chowdary/distributed-rate-limiter/proto/ratelimiter";
+
+message RateLimitCheckRequest {
+  string client_id = 1;
+}
+
+message RateLimitCheckResponse {
+  bool  allowed          = 1;
+  int32 remaining_tokens = 2;
+  int64 retry_after_ms   = 3;
+}
+
+service RateLimitService {
+  rpc CheckRateLimit(RateLimitCheckRequest) returns (RateLimitCheckResponse);
+}
